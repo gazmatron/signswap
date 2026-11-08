@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Signswap Live</title>
+<style>
+:root{--ink:#0d0a1a;--panel:#171128;--line:#3a2d63;--pink:#ff3d8b;--cyan:#38e8ff;--fg:#f1ecff}
+html,body{margin:0;height:100%;background:#000;color:var(--fg);font:14px/1.4 "Trebuchet MS",system-ui,sans-serif;overflow:hidden}
+#stage{position:absolute;left:0;top:0;transform-origin:0 0}
+#bg{display:block}
+.bb{position:absolute;left:0;top:0;width:400px;height:300px;transform-origin:0 0;overflow:hidden;background:#222;box-shadow:0 0 40px rgba(255,255,255,.4)}
+.bb img{width:100%;height:100%;object-fit:fill;display:block}
+body.crop .bb img{object-fit:cover}
+.bb.empty{background:repeating-linear-gradient(45deg,#2b2146 0 20px,#1f1736 20px 40px);opacity:.75}
+svg{position:absolute;left:0;top:0;pointer-events:none}
+polygon{fill:rgba(255,61,139,.12);stroke:var(--pink);stroke-width:3}
+.h{position:absolute;width:var(--hs,22px);height:var(--hs,22px);margin:calc(var(--hs,22px)/-2) 0 0 calc(var(--hs,22px)/-2);border-radius:50%;background:var(--cyan);border:3px solid var(--ink);cursor:grab;color:var(--ink);font:700 calc(var(--hs,22px)*.55)/calc(var(--hs,22px)*.7) sans-serif;text-align:center;touch-action:none}
+#st{position:fixed;left:12px;bottom:12px;max-width:70vw;word-break:break-word;padding:6px 10px;background:rgba(13,10,26,.88);color:var(--cyan);border:1px solid var(--line);border-radius:6px;font-size:12px;opacity:0;transition:opacity .3s;z-index:6;pointer-events:none}
+#uib{position:fixed;left:0;top:0;width:28px;height:28px;z-index:20;cursor:pointer}
+body.live #panel,body.live .h,body.live svg{display:none}
+body.live .bb.empty{background:none;box-shadow:none;opacity:1}
+.n{position:absolute;z-index:3;transform:translateY(-100%);pointer-events:none;color:#fff;opacity:.75;font:700 var(--nf,16px)/1 "Trebuchet MS",sans-serif;text-shadow:0 0 4px #000,0 0 2px #000}
+body.nonum .n{display:none!important}
+#panel{position:fixed;top:12px;left:12px;width:300px;max-height:calc(100% - 24px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;z-index:5}
+#panel h1{margin:0 0 4px;font:700 20px "Trebuchet MS",sans-serif;color:var(--pink)}
+#panel p{margin:0 0 10px;color:#b9aedd;font-size:12px}
+.btn,button{display:block;width:100%;box-sizing:border-box;margin:6px 0;padding:8px 10px;background:#241a3f;color:var(--fg);border:1px solid var(--line);border-radius:6px;font:inherit;text-align:left;cursor:pointer;text-decoration:none}
+.btn:hover,button:hover{border-color:var(--cyan)}
+.btn:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--cyan)}
+button.on{border-color:var(--pink);background:#3a1a45}
+input[type=text]{width:100%;box-sizing:border-box;padding:8px;background:var(--ink);color:var(--fg);border:1px solid var(--line);border-radius:6px;font:inherit}
+.row{display:flex;gap:6px}.row>*{flex:1}
+.item{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:8px 0}.item span{flex:1 1 60%;min-width:0}
+.th{width:36px;height:26px;background:#0007;border-radius:3px;overflow:hidden;flex:none}.th img{width:100%;height:100%;object-fit:cover;display:block}
+button:disabled{opacity:.35;cursor:default}.item button{width:auto;margin:0;padding:4px 6px;font-size:12px}
+input[type=range]{width:100%}#lnk{margin:6px 0}#log{margin-top:8px;font-size:12px;color:#b9aedd;min-height:16px}
+</style></head><body>
+<div id="st"></div>
+<div id="uib" title="Show or hide the controls (or press U)"></div>
+<div id="stage"><img id="bg" alt=""><svg id="ov"></svg></div>
+<div id="panel">
+<h1>Signswap Live</h1>
+<button id="hide">Hide controls (press U to bring them back)</button>
+<p id="bd" style="margin:0 0 6px;font-size:11px;opacity:.7"></p>
+<p>Chat swaps billboards on your street photo. Set it up once, then open the live view.</p>
+<label class="btn">Choose street photo<input id="ph" type="file" accept="image/*" hidden></label>
+<button id="add">Mark a billboard</button>
+<p id="hint"></p>
+<div id="list"></div>
+<button id="rst">Reset billboards to preset</button>
+<button id="ft">Picture fit: stretch</button>
+<button id="clr">Clear all billboard pictures</button>
+<button id="nm">Numbers on stream: on</button>
+<label class="btn">Add your own images / GIFs<input id="lib" type="file" accept="image/*" multiple hidden></label>
+<p>Chat uses them by name, like <b>!sign 1 neon-cat</b></p>
+<div id="libl"></div>
+<label class="btn">Add sound bites (short audio)<input id="snd" type="file" accept="audio/*" multiple hidden></label>
+<p>Chat plays them like <b>!sound airhorn</b>. Keep each under 1.5 MB.</p>
+<div id="sndl"></div>
+<p style="margin:0">Sound volume</p><input type="range" id="vol" min="0" max="100" aria-label="Sound volume">
+<input type="text" id="ch" placeholder="Twitch channel name" aria-label="Twitch channel name">
+<input type="text" hidden id="rw" placeholder="Reward ID or name (optional, commas between several)" aria-label="Channel points reward ID">
+<input type="text" id="sb" placeholder="Streamer.bot address, e.g. 127.0.0.1:8080" aria-label="Streamer.bot address">
+<p style="margin:6px 0 0">After changing billboards, click Open live view again and paste the new address into OBS.</p>
+<a id="go" class="btn" target="_blank" rel="noopener">Open live view</a>
+<button id="cloud">Save online (get the streamer link)</button>
+<input type="text" id="lnk" readonly hidden aria-label="Streamer link for OBS">
+<div class="row"><button id="exp">Export setup</button><label class="btn">Import setup<input id="imp" type="file" accept=".json" hidden></label></div>
+<input type="text" id="test" placeholder="Test: !sign 1 https://…/pic.gif, then Enter" aria-label="Test a chat command">
+<div id="log"></div>
+</div>
+<script>
+const Q=new URLSearchParams(location.search),LIVE=Q.has('live'),$=id=>document.getElementById(id);
+document.body.classList.toggle('live',LIVE);
+const clean=()=>document.body.classList.contains('live');
+const toggleUI=()=>{document.body.classList.toggle('live');const e=document.getElementById('st');if(e)e.style.opacity=0};
+const PRESET={"v": 5, "photo": "street.jpg", "channel": "nottheronin", "boards": [{"corners": [[1746, 624], [2072, 528], [2076, 924], [1746, 968]], "url": "", "name": "White-shirt man"}, {"corners": [[1744, 1014], [2056, 960], [2044, 1498], [1724, 1516]], "url": "", "name": "Colorful poster"}, {"corners": [[2086, 720], [2592, 742], [2590, 1112], [2082, 1100]], "url": "", "name": "Fire poster"}, {"corners": [[2084, 1340], [2590, 1354], [2582, 1574], [2086, 1566]], "url": "", "name": "Orange sign"}, {"corners": [[864, 464], [1048, 358], [1042, 672], [870, 738]], "url": "", "name": "SEGA"}, {"corners": [[1040, 204], [1264, 98], [1264, 524], [1050, 600]], "url": "", "name": "Yellow tower left"}, {"corners": [[1270, 102], [1548, 234], [1524, 586], [1264, 524]], "url": "", "name": "Yellow tower right"}, {"corners": [[2520, 218], [2676, 166], [2676, 578], [2526, 616]], "url": "", "name": "Blue tall sign"}, {"corners": [[1964, 302], [2248, 190], [2250, 366], [1972, 468]], "url": "", "name": "Top white sign"}, {"corners": [[1708, 348], [1694, 752], [1412, 770], [1406, 388]], "url": "", "rot": 3}, {"corners": [[786, 422], [584, 546], [576, 742], [776, 646]], "url": "", "flip": true}, {"corners": [[366, 880], [534, 802], [522, 1198], [352, 1226]], "url": ""}, {"corners": [[768, 854], [872, 882], [856, 1318], [760, 1308]], "url": ""}, {"corners": [[2666, 1100], [2818, 1144], [2812, 1228], [2666, 1186]], "url": ""}, {"corners": [[2660, 1284], [2840, 1320], [2836, 1412], [2660, 1378]], "url": ""}, {"corners": [[3348, 390], [3582, 680], [3570, 954], [3348, 772]], "url": ""}, {"corners": [[3106, 386], [3162, 396], [3162, 1392], [3104, 1378]], "url": "", "name": "White tall strip", "locked": true}, {"corners": [[2850, 372], [2892, 362], [2888, 1230], [2840, 1234]], "url": "", "locked": true}]};
+const BUILD='Build 10 (Streamer.bot status), layout v'+PRESET.v;
+let C={photo:'',channel:'',boards:[]},W=1920,H=1080,els=[],nels=[],adding=false,pend=[],locked=false,last={};
+const log=t=>{$('log').textContent=t;try{st(t)}catch(e){}};
+/* storage */
+const db=()=>new Promise(r=>{const q=indexedDB.open('signswap',1);q.onupgradeneeded=()=>q.result.createObjectStore('k');q.onsuccess=()=>r(q.result)});
+const put=async(k,v)=>{const d=await db();return new Promise(r=>{const t=d.transaction('k','readwrite');t.objectStore('k').put(v,k);t.oncomplete=r})};
+const get=async k=>{const d=await db();return new Promise(r=>{const q=d.transaction('k').objectStore('k').get(k);q.onsuccess=()=>r(q.result)})};
+const save=()=>{try{upd()}catch(e){}return put('cfg',C)};
+/* perspective: unit box -> 4 corners as CSS matrix3d */
+const adj=m=>[m[4]*m[8]-m[5]*m[7],m[2]*m[7]-m[1]*m[8],m[1]*m[5]-m[2]*m[4],m[5]*m[6]-m[3]*m[8],m[0]*m[8]-m[2]*m[6],m[2]*m[3]-m[0]*m[5],m[3]*m[7]-m[4]*m[6],m[1]*m[6]-m[0]*m[7],m[0]*m[4]-m[1]*m[3]];
+const mul=(a,b)=>{const c=[];for(let i=0;i<3;i++)for(let j=0;j<3;j++){let s=0;for(let k=0;k<3;k++)s+=a[3*i+k]*b[3*k+j];c[3*i+j]=s}return c};
+const basis=p=>{const m=[p[0][0],p[1][0],p[2][0],p[0][1],p[1][1],p[2][1],1,1,1],a=adj(m),x=p[3][0],y=p[3][1];
+ const v=[a[0]*x+a[1]*y+a[2],a[3]*x+a[4]*y+a[5],a[6]*x+a[7]*y+a[8]];return mul(m,[v[0],0,0,0,v[1],0,0,0,v[2]])};
+const homog=(s,d)=>{const t=mul(basis(d),adj(basis(s))).map((v,_,a)=>v/a[8]);
+ return `matrix3d(${[t[0],t[3],0,t[6],t[1],t[4],0,t[7],0,0,1,0,t[2],t[5],0,t[8]]})`};
+const BOX=[[0,0],[400,0],[400,300],[0,300]];
+/* scene */
+function quad(b){let c=b.corners.slice();if(b.flip)c=[c[1],c[0],c[3],c[2]];for(let k=0;k<(b.rot||0);k++)c=[c[1],c[2],c[3],c[0]];return c}
+function layoutParam(){const o={b:C.boards.map(b=>[].concat(b.corners[0],b.corners[1],b.corners[2],b.corners[3],[b.rot||0,b.flip?1:0,b.locked?1:0,b.name||''])),n:C.numbers===false?0:1,f:C.fit==='crop'?'c':'s'};
+ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function fit(){const s=Math.min(innerWidth/W,innerHeight/H);fit.s=s;
+ $('stage').style.transform=`translate(${(innerWidth-W*s)/2}px,${(innerHeight-H*s)/2}px) scale(${s})`}
+function place(i){const b=C.boards[i],q=quad(b),d=(a,c)=>Math.hypot(a[0]-c[0],a[1]-c[1]),w=Math.max(20,(d(q[0],q[1])+d(q[3],q[2]))/2),h=Math.max(20,(d(q[0],q[3])+d(q[1],q[2]))/2),el=els[i];el.style.width=w+'px';{const c0=b.corners[3],nn=nels[i];if(nn){nn.style.left=(c0[0]+Math.round(W/380))+'px';nn.style.top=(c0[1]-Math.round(W/480))+'px'}}el.style.height=h+'px';el.style.transform=homog([[0,0],[w,0],[w,h],[0,h]],q);
+ $('ov').querySelectorAll('polygon')[i]?.setAttribute('points',b.corners.map(p=>p.join(',')).join(' '))}
+const numVis=i=>{const b=C.boards[i];if(nels[i]&&b)nels[i].style.display=(b.url||b.locked)?'none':''};
+function apply(i){setTimeout(list,0);const el=els[i],u=C.boards[i].url;el.classList.toggle('empty',!u);numVis(i);let im=el.querySelector('img');
+ if(u){if(!im){im=new Image();im.alt='';el.append(im)}im.src=u}else if(im)im.remove()}
+function build(){const st=$('stage');st.querySelectorAll('.bb,.h,.n').forEach(e=>e.remove());$('ov').innerHTML='';els=[];nels=[];
+ $('ov').setAttribute('width',W);$('ov').setAttribute('height',H);st.style.width=W+'px';st.style.height=H+'px';st.style.setProperty('--nf',Math.round(W/120)+'px');st.style.setProperty('--hs',Math.round(W/87)+'px');
+ C.boards.forEach((b,i)=>{const el=document.createElement('div');el.className='bb empty';st.append(el);els.push(el);const nn=document.createElement('b');nn.className='n';nn.textContent=i+1;st.append(nn);nels.push(nn);
+  $('ov').insertAdjacentHTML('beforeend','<polygon/>');apply(i);place(i);
+  b.corners.forEach((p,j)=>{const h=document.createElement('div');h.className='h';h.textContent=i+1;h.style.left=p[0]+'px';h.style.top=p[1]+'px';st.append(h);
+   h.onpointerdown=e=>{h.setPointerCapture(e.pointerId);h.drag=1};
+   h.onpointerup=()=>{h.drag=0;save()};
+   h.onpointermove=e=>{if(!h.drag)return;const r=st.getBoundingClientRect(),x=Math.round((e.clientX-r.left)/fit.s),y=Math.round((e.clientY-r.top)/fit.s);
+    b.corners[j]=[x,y];h.style.left=x+'px';h.style.top=y+'px';place(i)}})});
+ list();fit()}
+function list(){const l=$('list');l.innerHTML='';C.boards.forEach((b,i)=>{const d=document.createElement('div');d.className='item';
+ d.innerHTML=`<i class="th"></i><span></span><button>Clear</button><button class="lk"></button><button>Rotate</button><button>Flip</button><button>Remove</button>`;
+ const th=d.querySelector('.th');if(b.url){const im=new Image();im.alt='';im.src=b.url;th.append(im)}
+ d.querySelector('span').textContent=(i+1)+' '+(b.name||'Billboard')+(b.locked?' (locked)':'');
+ const [c,lk,r,f,x]=d.querySelectorAll('button');lk.textContent=b.locked?'Locked':'Lock';lk.classList.toggle('on',!!b.locked);lk.title='Stop viewers changing this billboard (mods and the streamer still can)';lk.onclick=()=>{b.locked=!b.locked;numVis(i);save();syncLock(i,!!b.locked);list()};c.disabled=!b.url;c.title='Take the picture off this billboard';
+ c.onclick=()=>setSign(i,'');r.onclick=()=>{b.rot=((b.rot||0)+1)%4;save();place(i)};f.onclick=()=>{b.flip=!b.flip;save();place(i)};
+ x.onclick=()=>{if(confirm('Remove billboard '+(i+1)+' from the setup? Later numbers will shift. "Reset billboards" brings it back.')){C.boards.splice(i,1);save();build()}};l.append(d)})}
+function setPhoto(src){C.photo=src;$('bg').onload=()=>{W=$('bg').naturalWidth;H=$('bg').naturalHeight;build()};$('bg').src=src}
+/* your own images: stored in the setup, used by name in chat */
+const LIB=()=>C.lib||(C.lib=[]);
+function libList(){const l=$('libl');l.innerHTML='';LIB().forEach((x,i)=>{const d=document.createElement('div');d.className='item';
+ d.innerHTML=`<span></span><button>Delete</button>`;d.querySelector('span').textContent=x.name;
+ d.querySelector('button').onclick=()=>{LIB().splice(i,1);save();libList()};l.append(d)})}
+$('lib').onchange=e=>{[...e.target.files].forEach(f=>{const r=new FileReader();r.onload=()=>{
+ const n=f.name.replace(/\.[^.]+$/,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'image';
+ const k=LIB().findIndex(x=>x.name===n);if(k>-1)LIB().splice(k,1);LIB().push({name:n,data:r.result});save();libList()};r.readAsDataURL(f)});e.target.value=''};
+/* sound bites */
+const SND=()=>C.sounds||(C.sounds=[]);let lastSnd=0,lsd={};
+function playSnd(d){try{const a=new Audio(d);a.volume=(C.vol??80)/100;a.play().catch(()=>log('Click the page once to allow sound.'))}catch(e){}}
+function sndList(){const l=$('sndl');l.innerHTML='';SND().forEach((x,i)=>{const d=document.createElement('div');d.className='item';
+ d.innerHTML='<span></span><button>Play</button><button>Delete</button>';d.querySelector('span').textContent=x.name;
+ const [p,del]=d.querySelectorAll('button');p.onclick=()=>playSnd(x.data);del.onclick=()=>{SND().splice(i,1);save();sndList()};l.append(d)})}
+$('snd').onchange=e=>{[...e.target.files].forEach(f=>{if(f.size>1500000){log(f.name+' is too big. Keep sound bites under 1.5 MB (about 10 seconds).');return}
+ const r=new FileReader();r.onload=()=>{const n=f.name.replace(/\.[^.]+$/,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'sound';
+ const k=SND().findIndex(x=>x.name===n);if(k>-1)SND().splice(k,1);SND().push({name:n,data:r.result});save();sndList();log('Added sound: '+n)};r.readAsDataURL(f)});e.target.value=''};
+$('vol').oninput=()=>{C.vol=+$('vol').value;save()};
+function soundCmd(m,r){const n=(r[1]||'').toLowerCase(),x=SND().find(s=>s.name===n);if(!x)return;
+ const who=Q.get('who')||'subs';if((who==='mods'&&!m.mod)||(who==='subs'&&!(m.mod||m.sub)))return;
+ const now=Date.now(),cd=(Q.has('cd')?+Q.get('cd'):20)*1000;if(!m.mod&&(now-(lsd[m.user]||0)<cd||now-lastSnd<4000))return;
+ lsd[m.user]=now;lastSnd=now;playSnd(x.data)}
+/* online save: one link for OBS, loads the whole setup from the site */
+const rnd=n=>[...crypto.getRandomValues(new Uint8Array(n))].map(b=>'abcdefghijkmnpqrstuvwxyz23456789'[b%32]).join('');
+const showLink=()=>{if(C.cloudId){$('lnk').value=location.origin+'/?live&id='+C.cloudId;$('lnk').hidden=false}};
+async function cloudSave(){if(!C.cloudId){C.cloudId=rnd(10);C.cloudKey=rnd(24)}
+ const d=JSON.parse(JSON.stringify(C));delete d.cloudKey;delete d.cloudId;(d.boards||[]).forEach(b=>b.url='');
+ const body=JSON.stringify(d);if(body.length>15e6){log('Setup is too big to save online ('+Math.round(body.length/1e6)+' MB). Delete some images or sounds.');return}
+ log('Saving online...');
+ try{const r=await fetch('/api/setup/'+C.cloudId,{method:'PUT',headers:{'x-edit-key':C.cloudKey},body});if(!r.ok)throw new Error(r.status);
+  await put('cfg',C);showLink();log('Saved online. Copy the link below into OBS (browser source).')}
+ catch(e){log('Could not save online ('+e.message+'). This only works on the Cloudflare site.')}}
+$('cloud').onclick=cloudSave;$('lnk').onclick=()=>{$('lnk').select();try{navigator.clipboard.writeText($('lnk').value)}catch(e){}};
+/* setup interactions */
+$('ph').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{setPhoto(r.result);save()};r.readAsDataURL(f)};
+$('add').onclick=()=>{if(!C.photo){log('Choose a street photo first.');return}adding=true;pend=[];$('add').classList.add('on');
+ $('hint').textContent='Click 4 corners: top-left, top-right, bottom-right, bottom-left.'};
+$('stage').onclick=e=>{if(!adding||clean()||e.target.classList.contains('h'))return;const r=$('stage').getBoundingClientRect();
+ pend.push([Math.round((e.clientX-r.left)/fit.s),Math.round((e.clientY-r.top)/fit.s)]);
+ $('ov').insertAdjacentHTML('beforeend',`<circle cx="${pend.at(-1)[0]}" cy="${pend.at(-1)[1]}" r="8" fill="#38e8ff"/>`);
+ if(pend.length==4){C.boards.push({corners:pend,url:''});adding=false;pend=[];$('add').classList.remove('on');$('hint').textContent='';save();build()}};
+const upd=()=>{C.channel=$('ch').value.trim().replace(/^.*twitch\.tv\//i,'').replace(/^#/,'').replace(/[\/?#\s].*$/,'');$('go').href=location.href.split('?')[0]+'?live&channel='+encodeURIComponent(C.channel)+(C.reward?'&reward='+encodeURIComponent(C.reward):'')+(C.sb?'&sb='+encodeURIComponent(C.sb):'')+'&layout='+layoutParam()+'&t='+Date.now()};
+$('rst').onclick=()=>{if(confirm('Put every billboard back to its preset position? Pictures on them will be cleared.')){C.boards=JSON.parse(JSON.stringify(PRESET.boards));save();build()}};
+$('ft').onclick=()=>{C.fit=C.fit==='crop'?'stretch':'crop';fm();save()};
+$('clr').onclick=()=>C.boards.forEach((b,i)=>{if(!b.locked)setSign(i,'')});
+$('nm').onclick=()=>{C.numbers=C.numbers===false;nums();save();$('nm').textContent='Numbers on stream: '+(C.numbers===false?'off':'on')};
+$('rw').oninput=()=>{C.reward=$('rw').value.trim();REWARD=C.reward;upd();save()};
+$('sb').oninput=()=>{C.sb=$('sb').value.trim();SB=C.sb;upd();save()};
+$('ch').oninput=()=>{upd();save()};
+$('exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(Object.assign({},C,{cloudKey:undefined,cloudId:undefined}))],{type:'application/json'}));a.download='signswap-setup.json';a.click()};
+$('imp').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{C=JSON.parse(r.result);$('ch').value=C.channel||'';upd();libList();sndList();setPhoto(C.photo);save()}catch{log('That file is not a Signswap setup.')}};r.readAsText(f)};
+$('test').onkeydown=e=>{if(e.key==='Enter'){onChat({user:'test',text:e.target.value,mod:true,sub:true});e.target.value=''}};
+const fm=()=>{document.body.classList.toggle('crop',C.fit==='crop');$('ft').textContent='Picture fit: '+(C.fit==='crop'?'crop to fill':'stretch')};
+const nums=()=>document.body.classList.toggle('nonum',C.numbers===false);
+/* status + sync between open tabs */
+const st=(t,keep)=>{if(clean()&&!Q.has('debug'))return;const e=$('st');e.textContent=t;e.style.opacity=1;clearTimeout(st.t);if(!keep)st.t=setTimeout(()=>e.style.opacity=0,8000)};
+let lastSign=0,lastRx=Date.now(),ws;
+const rm=Q.has('refresh')?+Q.get('refresh'):10;
+if(LIVE&&rm>0)setInterval(()=>{if(Date.now()-lastSign>30000)location.reload()},rm*60000);
+setInterval(()=>{if(ws&&Date.now()-lastRx>420000){try{ws.close()}catch{}}},30000);
+let REWARD='';
+let SB='',dd={},SBSTATE='off',KICKN=0;
+const dbgUpdate=()=>{const e=document.getElementById('st2');if(e)e.textContent=BUILD+' | '+C.boards.length+' billboards | '+(Q.get('layout')?'layout from link':'NO layout in link')+' | '+LIB().length+' saved images | who='+(Q.get('who')||'subs')+' | channel='+(C.channel||'none')+' | Streamer.bot: '+(SB?SBSTATE:'off')+(SB?' | Kick chat seen: '+KICKN:'')};
+const rwMatch=m=>{if(!REWARD)return false;const k=[(m.reward||'').toLowerCase(),(m.rewardName||'').toLowerCase()].filter(Boolean);return REWARD.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean).some(x=>k.includes(x))};
+const dup=(m,t)=>{const k=(m.user||'').toLowerCase()+'|'+t,n=Date.now();if(dd[k]&&n-dd[k]<4000)return true;dd[k]=n;return false};
+const pick=(o,ks)=>{for(const k of ks){const v=k.split('.').reduce((a,b)=>a&&a[b],o);if(typeof v==='string'&&v)return v}return''};
+function scan(o,re,d=0){if(!o||typeof o!=='object'||d>3)return'';for(const k in o){const v=o[k];if(typeof v==='string'&&v&&re.test(k))return v}for(const k in o){const r=scan(o[k],re,d+1);if(r)return r}return''}
+function isMod(u){if(!u)return false;const re=/moderator|broadcaster|owner/i;if(u.isModerator===true||u.isBroadcaster===true)return true;const r=u.role;if(typeof r==='number')return r>=3;if(typeof r==='string')return re.test(r);if(r&&typeof r==='object')return Object.values(r).some(v=>typeof v==='string'&&re.test(v));return false}
+function sbEvent(j){const src=j.event.source,ty=j.event.type,d=j.data||{},u=d.user||{};
+ if(ty==='ChatMessage'){KICKN++;dbgUpdate()}
+ st('Streamer.bot sent '+src+'.'+ty);
+ const who=pick(d,['user_name','userName','user_login','user.name','user.login','user.username','user.display','user.displayName'])||'viewer';
+ if(ty==='ChatMessage'){if(!d.text)return;onChat({user:who,text:d.text,mod:isMod(u),sub:!!u.isSubscribed,reward:''});return}
+ if(ty==='RewardRedemption'){
+  const rid=pick(d,['reward.id','rewardId','reward_id']),rn=pick(d,['reward.title','reward.name','rewardName','reward_name','title']);
+  const txt=pick(d,['user_input','userInput','input','rawInput','raw_input','reward.input'])||scan(d,/input|message|text/i);
+  seeReward(rid||rn);
+  if(!LIVE||Q.has('debug')){console.log('Streamer.bot',src,ty,j);st(src+' reward: '+(rn||'?')+' | id '+(rid||'?')+' | text: '+(txt||'(none found)'),1)}
+  onChat({user:who,text:txt,reward:rid,rewardName:rn,mod:false,sub:false})}}
+function sbConnect(){const a=/^(1|true|on)$/i.test(SB)?'127.0.0.1:8080':SB;if(!a)return;SBSTATE='connecting';dbgUpdate();let w;try{w=new WebSocket('ws://'+a)}catch{SBSTATE='failed to start';dbgUpdate();return}
+ w.onopen=()=>{SBSTATE='connected';dbgUpdate();w.send(JSON.stringify({request:'Subscribe',id:'signswap',events:{Kick:['ChatMessage']}}));st('Streamer.bot connected')};
+ w.onmessage=e=>{let j;try{j=JSON.parse(e.data)}catch{return}if(j&&j.event&&j.event.source&&j.event.type)sbEvent(j)};
+ w.onclose=()=>{SBSTATE='NOT REACHABLE (blocked or not running)';dbgUpdate();st('Streamer.bot not reachable, retrying...',1);setTimeout(sbConnect,4000)}}
+
+function seeReward(id){return;if(LIVE&&!Q.has('debug'))return;st('Reward ID: '+id,1);log('Reward ID seen: '+id);if(!LIVE&&!$('rw').value){$('rw').value=id;C.reward=id;REWARD=id;upd();save()}}
+let bc;try{bc=new BroadcastChannel('signswap');bc.onmessage=e=>{const b=C.boards[e.data.i];if(b){if('lock' in e.data){b.locked=e.data.lock;numVis(e.data.i);list()}else{b.url=e.data.url;apply(e.data.i)}}}}catch{}
+const syncLock=(i,v)=>{try{bc&&bc.postMessage({i,lock:v})}catch{}};
+const sync=(i,url)=>{lastSign=Date.now();try{bc&&bc.postMessage({i,url})}catch{}};
+/* chat commands: !sign <n> <https image url> | !sign <n> clear | mods: !signlock / !signunlock */
+function candidates(raw){let x;try{x=new URL(raw)}catch{return[]}if(x.protocol!=='https:')return[];
+ const h=x.hostname.replace(/^www\./i,'').toLowerCase(),p=x.pathname;let m;
+ if(h==='giphy.com'&&(m=p.match(/^\/(?:gifs|stickers|embed|clips)\/(?:.*-)?([A-Za-z0-9]+)\/?$/)))return[`https://i.giphy.com/media/${m[1]}/giphy.gif`,`https://media.giphy.com/media/${m[1]}/giphy.gif`,raw];
+ if(h==='imgur.com'&&(m=p.match(/^\/(?:gallery\/)?([A-Za-z0-9]{5,8})\/?$/)))return[`https://i.imgur.com/${m[1]}.gif`,`https://i.imgur.com/${m[1]}.png`,`https://i.imgur.com/${m[1]}.jpg`];
+ if(h==='i.imgur.com'&&/\.gifv$/i.test(p)){x.pathname=p.replace(/\.gifv$/i,'.gif');return[x.href]}
+ if(h==='tenor.com'&&/^\/view\//.test(p)&&!/\.gif$/i.test(p)){x.pathname=p+'.gif';return[x.href]}
+ return[raw]}
+function tryLoad(list,ok,fail){const u=list.shift();if(!u)return fail();const t=new Image();t.onload=()=>ok(u);t.onerror=()=>tryLoad(list,ok,fail);t.src=u}
+function setSign(i,url){const b=C.boards[i];if(!b)return;
+ if(!url){b.url='';apply(i);save();sync(i,'');return}
+ const L=url.startsWith('data:')?[url]:candidates(url);
+ tryLoad(L,u=>{b.url=u;apply(i);save();sync(i,u);log(`Billboard ${i+1} updated.`)},()=>{log('That link is not a picture. Use the image address (right-click > Copy image address).');st('Could not load: '+url.slice(0,50))})}
+function onChat(m){let t=m.text.trim();const rw=rwMatch(m);if(rw&&!/^!sign\s/i.test(t))t='!sign '+t;if(rw&&dup(m,t))return;
+ const r=t.split(/\s+/),c=r[0].toLowerCase();
+ if(c==='!signnumbers'&&m.mod){C.numbers=C.numbers===false;nums();save();return}
+ if(c==='!signclear'&&m.mod){C.boards.forEach((b,i)=>{if(!b.locked)setSign(i,'')});return}
+ if(c==='!signlock'&&m.mod){const n=parseInt(r[1])-1;if(C.boards[n]){C.boards[n].locked=true;numVis(n);save();syncLock(n,true);list()}else locked=true;return}
+ if(c==='!signunlock'&&m.mod){const n=parseInt(r[1])-1;if(C.boards[n]){C.boards[n].locked=false;numVis(n);save();syncLock(n,false);list()}else locked=false;return}
+ if(c==='!sound'){soundCmd(m,r);return}
+ if(c!=='!sign'||locked)return;if(REWARD&&!rw&&!m.mod)return;st(m.user+': '+m.text.slice(0,70));
+ const who=Q.get('who')||'subs';if(!rw&&((who==='mods'&&!m.mod)||(who==='subs'&&!(m.mod||m.sub)))){log('Ignored: '+m.user+' is not a '+(who==='mods'?'mod':'sub or mod'));return}
+ const now=Date.now(),cd=(Q.has('cd')?+Q.get('cd'):20)*1000;if(!m.mod&&!rw&&now-(last[m.user]||0)<cd){log('Ignored: '+m.user+' must wait '+Math.ceil((cd-(now-(last[m.user]||0)))/1000)+'s');return}
+ const hasNum=/^\d+$/.test(r[1]||''),arg=hasNum?r[2]:r[1];
+ if(!arg||!C.boards.length){log('Ignored: nothing after !sign');return}
+ if(!hasNum&&arg.toLowerCase()==='clear')return;
+ let i;if(hasNum)i=parseInt(r[1])-1;else{const pool=C.boards.map((b,j)=>j).filter(j=>!C.boards[j].locked);if(!pool.length)return;i=pool[Math.floor(Math.random()*pool.length)]}
+ if(!C.boards[i]){log('Ignored: there is no billboard '+(i+1));return}if(C.boards[i].locked&&!m.mod){log('Billboard '+(i+1)+' is locked.');return}
+ if(arg.toLowerCase()==='clear'){last[m.user]=now;setSign(i,'');return}
+ const hit=LIB().find(x=>x.name===arg.toLowerCase());
+ if(hit){last[m.user]=now;setSign(i,hit.data);return}
+ if(!candidates(arg).length){log(LIB().length?'No saved image called "'+arg+'" here, and it is not an https link.':'Needs an https link. No images are saved in this browser, so names will not work here.');return}
+ last[m.user]=now;setSign(i,arg)}
+function connect(){if(!C.channel)return;ws=new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+ ws.onopen=()=>{ws.send('CAP REQ :twitch.tv/tags');ws.send('PASS SCHMOOPIIE');ws.send('NICK justinfan'+(10000+Math.random()*80000|0));ws.send('JOIN #'+C.channel.toLowerCase());st('Connected to #'+C.channel+', waiting for !sign')};
+ ws.onmessage=e=>{lastRx=Date.now();e.data.split('\r\n').forEach(l=>{if(l.startsWith('PING'))return ws.send('PONG :tmi.twitch.tv');
+  const m=l.match(/^@(\S+) :(\w+)!\S+ PRIVMSG #\S+ :(.*)$/);if(!m)return;
+  const t=Object.fromEntries(m[1].split(';').map(s=>s.split('='))),bd=t.badges||'';
+  if(t['custom-reward-id'])seeReward(t['custom-reward-id']);onChat({user:m[2],text:m[3],reward:t['custom-reward-id']||'',mod:/broadcaster|moderator/.test(bd)||t.mod==='1',sub:/subscriber|founder/.test(bd)||t.subscriber==='1'})})};
+ ws.onclose=()=>{st('Chat disconnected, retrying...',1);setTimeout(connect,3000)}}
+addEventListener('resize',fit);
+$('hide').onclick=toggleUI;$('uib').onclick=toggleUI;
+addEventListener('keydown',e=>{const t=e.target&&e.target.tagName;if(t==='INPUT'||t==='TEXTAREA')return;if(e.key==='u'||e.key==='U')toggleUI()});
+(async()=>{$('bd').textContent=BUILD;if(LIVE&&Q.has('debug'))st(BUILD);
+ const rs=Q.get('reset');if(rs){try{if(localStorage.getItem('ssreset')!==rs){const d=await db();await new Promise(r=>{const t=d.transaction('k','readwrite');t.objectStore('k').clear();t.oncomplete=r;t.onerror=r});localStorage.setItem('ssreset',rs)}}catch(e){}}
+ const s=await get('cfg');C=s||C;if(!s||s.presetV!==PRESET.v){C.photo=PRESET.photo;C.boards=JSON.parse(JSON.stringify(PRESET.boards));C.presetV=PRESET.v;save()}try{const lp=Q.get('layout');if(lp){const d=JSON.parse(decodeURIComponent(escape(atob(lp.replace(/-/g,'+').replace(/_/g,'/')))));const old=C.boards||[];
+  C.boards=d.b.map(a=>{const cs=[[a[0],a[1]],[a[2],a[3]],[a[4],a[5]],[a[6],a[7]]],key=JSON.stringify(cs),o=old.find(x=>JSON.stringify(x.corners)===key);
+   const b={corners:cs,url:o?(o.url||''):''};if(a[8])b.rot=a[8];if(a[9])b.flip=true;if(a[10])b.locked=true;if(a[11])b.name=a[11];return b});
+  C.numbers=d.n?true:false;C.fit=d.f==='c'?'crop':'stretch';save()}}catch(e){}
+ const cid=Q.get('id');if(cid){try{const r=await fetch('/api/setup/'+encodeURIComponent(cid),{cache:'no-store'});if(r.ok){const d=await r.json(),old=C.boards||[];
+  C.photo=d.photo||PRESET.photo;C.boards=(d.boards||[]).map(b=>{const k=JSON.stringify(b.corners),o=old.find(x=>JSON.stringify(x.corners)===k);return Object.assign({},b,{url:o?(o.url||''):''})});
+  ['lib','sounds','numbers','fit','channel','sb','vol'].forEach(k=>{if(k in d)C[k]=d[k]});save()}}catch(e){}}
+ if(!C.channel&&PRESET.channel)C.channel=PRESET.channel;if(Q.get('channel'))C.channel=Q.get('channel');$('ch').value=C.channel||'';REWARD='';C.reward='';$('rw').value='';SB=LIVE?(Q.get('sb')||C.sb||''):(C.sb||'');$('sb').value=LIVE?'':(C.sb||'');upd();
+ fm();nums();$('nm').textContent='Numbers on stream: '+(C.numbers===false?'off':'on');libList();sndList();$('vol').value=C.vol??80;showLink();if(C.photo)setPhoto(C.photo);if(!C.channel)st('No channel set. Add it in setup, then reopen the live view.',1);
+ if(LIVE&&Q.has('debug')){const e=document.createElement('div');e.style.cssText='position:fixed;left:12px;top:12px;background:rgba(0,0,0,.85);color:#38e8ff;font:12px sans-serif;padding:6px 10px;border-radius:6px;z-index:9;max-width:80vw';
+  e.id='st2';document.body.append(e);dbgUpdate()}
+ connect();sbConnect()})();
+</script></body></html>
